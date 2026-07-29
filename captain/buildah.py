@@ -107,7 +107,7 @@ def manifest_create(
     log.info("buildah manifest create %s", ref)
     cmd = ["buildah", "manifest", "create"]
     for key, value in oci_metadata.items():
-        cmd += ["--annotation", f"{key}={value}"]
+        cmd += ["--annotation", f"{key}={value.replace(',', ';')}"]
     cmd += [ref]
     result = run(cmd, capture=True, check=False)
     # handle and show both stdout and stderr on failure

@@ -34,8 +34,11 @@ _TINK_PARAMS: list[tuple[str, str]] = [
 
 def run_qemu(cfg: Config, args: list[str] | None = None) -> None:
     """Boot the built image in QEMU for quick testing."""
-    kernel = cfg.output_dir / f"vmlinuz-{cfg.flavor_id}-{cfg.arch_info.output_arch}"
-    initrd = cfg.output_dir / f"initramfs-{cfg.flavor_id}-{cfg.arch_info.output_arch}"
+    import captain.flavor
+
+    flavor = captain.flavor.create_and_setup_flavor_for_id(cfg.flavor_id, cfg)
+    kernel = cfg.output_dir / flavor.kernel_artifact_name(cfg.arch_info.output_arch)
+    initrd = cfg.output_dir / flavor.initramfs_artifact_name(cfg.arch_info.output_arch)
 
     log.debug("Looking for kernel at %s", kernel)
     log.debug("Looking for initramfs at %s", initrd)

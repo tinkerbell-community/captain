@@ -38,6 +38,7 @@ jobs:
         run: |
           uv run captain --flavor-id trixie-full release --target combined pull --pull-output release-artifacts
           uv run captain --flavor-id trixie-slim release --target combined pull --pull-output release-artifacts
+          uv run captain --flavor-id trixie release --target combined pull --pull-output release-artifacts/trixie
           uv run captain --flavor-id trixie-armbian-rpi release --target arm64 pull --pull-output release-artifacts
           uv run captain --flavor-id trixie-rockchip64 release --target arm64 pull --pull-output release-artifacts
           uv run captain --flavor-id trixie-meson64 release --target arm64 pull --pull-output release-artifacts
@@ -71,6 +72,9 @@ jobs:
 
       - name: Tag (trixie-slim)
         run: uv run captain --flavor-id trixie-slim release tag --new-tag "${{ github.ref_name }}-slim"
+
+      - name: Tag (trixie)
+        run: uv run captain --flavor-id trixie release tag --new-tag "${{ github.ref_name }}-trixie"
 
       - name: Tag (trixie-armbian-rpi)
         run: uv run captain --flavor-id trixie-armbian-rpi --arch arm64 release tag --new-tag "${{ github.ref_name }}-rpi"

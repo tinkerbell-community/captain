@@ -121,9 +121,9 @@ def build_cmd(
 
     # Initramfs (mkosi) stage + artifact collection.
     _build_mkosi_stage(cfg, list(cfg.mkosi_args))
-    artifacts.collect_initramfs(cfg)
-    artifacts.collect_kernel(cfg)
-    artifacts.collect_dtbs(cfg)
+    artifacts.collect_initramfs(cfg, flavor)
+    artifacts.collect_kernel(cfg, flavor)
+    artifacts.collect_dtbs(cfg, flavor)
     log.info("Initramfs build complete.")
 
     flavor.post_mkosi_stage()
@@ -135,7 +135,7 @@ def build_cmd(
         log.info("Flavor '%s' does not produce an ISO — skipping.", flavor.id)
 
     # Final artifact collection.
-    artifacts.collect(cfg)
+    artifacts.collect(cfg, flavor)
 
     # Flavor-driven artifact collection.
     flavor.post_artifact_collect()

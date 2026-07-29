@@ -47,12 +47,12 @@ jobs:
   # Download tools (containerd, runc, nerdctl, CNI plugins)
   # -------------------------------------------------------------------
   download-tools:
-    needs: [ prepare ]
+    needs: [prepare]
     runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
-        arch: [ amd64, arm64 ]
+        arch: [amd64, arm64]
     env:
       ARCH: ${{ matrix.arch }}
       MKOSI_MODE: skip
@@ -100,11 +100,11 @@ jobs:
   # Build Docker builder image, per-arch; pushes to ghcr.io.
   # -------------------------------------------------------------------
   build-dockerfile:
-    needs: [ prepare ]
+    needs: [prepare]
     runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
-      matrix: { arch: [ amd64, arm64 ] }
+      matrix: { arch: [amd64, arm64] }
     env:
       ARCH: ${{ matrix.arch }}
     steps:
@@ -135,12 +135,12 @@ jobs:
   # Download tools (containerd, runc, nerdctl, CNI plugins)
   # -------------------------------------------------------------------
   build-captainos-kernel:
-    needs: [ prepare, build-dockerfile ]
+    needs: [prepare, build-dockerfile]
     runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
     strategy:
       fail-fast: false
       matrix:
-        arch: [ amd64, arm64 ]
+        arch: [amd64, arm64]
     env:
       ARCH: ${{ matrix.arch }}
       KERNEL_VERSION: ${{ needs.prepare.outputs.kernel_version }}
@@ -181,17 +181,28 @@ jobs:
             mkosi.input/kernel/${{ matrix.arch }}
           retention-days: 1
 
-
   build-captainos-with-kernel: # only for flavors that require the custom CaptainOS kernel; otherwise, just build-captainos
     name: "build-captainos (with kernel) ${{ matrix.FLAVOR_ID }} (${{ matrix.arch }})"
     runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
-    needs: [ prepare, download-tools, build-dockerfile, build-captainos-kernel ]
+    needs: [prepare, download-tools, build-dockerfile, build-captainos-kernel]
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { arch: amd64, output_arch: x86_64, captainos_kernel: true, iso: true, FLAVOR_ID: "trixie-slim" }
-          - { arch: arm64, output_arch: aarch64, captainos_kernel: true, iso: true, FLAVOR_ID: "trixie-slim" }
+          - {
+              arch: amd64,
+              output_arch: x86_64,
+              captainos_kernel: true,
+              iso: true,
+              FLAVOR_ID: "trixie-slim",
+            }
+          - {
+              arch: arm64,
+              output_arch: aarch64,
+              captainos_kernel: true,
+              iso: true,
+              FLAVOR_ID: "trixie-slim",
+            }
     env: &build_env
       ARCH: ${{ matrix.arch }}
       MKOSI_MODE: docker
@@ -336,18 +347,98 @@ jobs:
     steps: *build_steps
     env: *build_env
     runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
-    needs: [ prepare, download-tools, build-dockerfile ]
+    needs: [prepare, download-tools, build-dockerfile]
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { arch: amd64, output_arch: x86_64, captainos_kernel: false, iso: true, FLAVOR_ID: "trixie-full" }
-          - { arch: arm64, output_arch: aarch64, captainos_kernel: false, iso: true, FLAVOR_ID: "trixie-full" }
-          - { arch: arm64, output_arch: aarch64, captainos_kernel: false, iso: false, FLAVOR_ID: "trixie-rockchip64" }
-          - { arch: arm64, output_arch: aarch64, captainos_kernel: false, iso: false, FLAVOR_ID: "trixie-rockchip64-vendor" }
-          - { arch: arm64, output_arch: aarch64, captainos_kernel: false, iso: false, FLAVOR_ID: "trixie-genio" }
-          - { arch: arm64, output_arch: aarch64, captainos_kernel: false, iso: false, FLAVOR_ID: "trixie-meson64" }
-          - { arch: arm64, output_arch: aarch64, captainos_kernel: false, iso: false, FLAVOR_ID: "trixie-armbian-rpi" }
+          - {
+              arch: amd64,
+              output_arch: x86_64,
+              captainos_kernel: false,
+              iso: true,
+              FLAVOR_ID: "trixie-full",
+            }
+          - {
+              arch: arm64,
+              output_arch: aarch64,
+              captainos_kernel: false,
+              iso: true,
+              FLAVOR_ID: "trixie-full",
+            }
+          - {
+              arch: arm64,
+              output_arch: aarch64,
+              captainos_kernel: false,
+              iso: false,
+              FLAVOR_ID: "trixie-rockchip64",
+            }
+          - {
+              arch: arm64,
+              output_arch: aarch64,
+              captainos_kernel: false,
+              iso: false,
+              FLAVOR_ID: "trixie-rockchip64-vendor",
+            }
+          - {
+              arch: arm64,
+              output_arch: aarch64,
+              captainos_kernel: false,
+              iso: false,
+              FLAVOR_ID: "trixie-genio",
+            }
+          - {
+              arch: arm64,
+              output_arch: aarch64,
+              captainos_kernel: false,
+              iso: false,
+              FLAVOR_ID: "trixie-meson64",
+            }
+          - {
+              arch: arm64,
+              output_arch: aarch64,
+              captainos_kernel: false,
+              iso: false,
+              FLAVOR_ID: "trixie-armbian-rpi",
+            }
+
+  # -------------------------------------------------------------------
+  # Consolidated trixie flavor: slim (captainos kernel) on amd64, armbian
+  # rpi kernel on arm64. Waits for its constituent flavors (trixie-slim /
+  # trixie-armbian-rpi) to build successfully before running.
+  # -------------------------------------------------------------------
+  build-captainos-trixie:
+    name: "build-captainos (consolidated) trixie (${{ matrix.arch }})"
+    steps: *build_steps
+    env: *build_env
+    runs-on: ${{ matrix.arch == 'arm64' && 'ubuntu-24.04-arm' || 'ubuntu-latest' }}
+    needs:
+      [
+        prepare,
+        download-tools,
+        build-dockerfile,
+        build-captainos-kernel,
+        build-captainos-with-kernel,
+        build-captainos,
+      ]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {
+              arch: amd64,
+              output_arch: x86_64,
+              captainos_kernel: true,
+              iso: true,
+              FLAVOR_ID: "trixie",
+            }
+          - {
+              arch: arm64,
+              output_arch: aarch64,
+              captainos_kernel: false,
+              iso: false,
+              FLAVOR_ID: "trixie",
+            }
 
   # -------------------------------------------------------------------
   # Publish combined multi-arch image (reuses per-arch registry blobs)
@@ -358,11 +449,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { combined_flavor: "trixie-full" }
-          - { combined_flavor: "trixie-slim" }
+          - { combined_flavor: "trixie-full", iso_amd64: true, iso_arm64: true }
+          - { combined_flavor: "trixie-slim", iso_amd64: true, iso_arm64: true }
+          # consolidated trixie only produces an ISO on amd64 (arm64 half is the rpi image)
+          - { combined_flavor: "trixie", iso_amd64: true, iso_arm64: false }
     name: "publish-combined ${{ matrix.combined_flavor }}"
     runs-on: ubuntu-latest
-    needs: [ build-captainos, build-captainos-with-kernel ] # depend on all flavors being built
+    needs: [build-captainos, build-captainos-with-kernel, build-captainos-trixie] # depend on all flavors being built
     env:
       FLAVOR_ID: ${{ matrix.combined_flavor }}
       ARCH: amd64
@@ -381,6 +474,7 @@ jobs:
           path: out
 
       - name: Download ISO artifact (amd64)
+        if: ${{ matrix.iso_amd64 }}
         uses: actions/download-artifact@v8
         with:
           name: iso-${{ matrix.combined_flavor }}-amd64
@@ -393,6 +487,7 @@ jobs:
           path: out
 
       - name: Download ISO artifact (arm64)
+        if: ${{ matrix.iso_arm64 }}
         uses: actions/download-artifact@v8
         with:
           name: iso-${{ matrix.combined_flavor }}-arm64

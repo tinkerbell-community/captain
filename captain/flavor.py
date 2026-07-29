@@ -172,6 +172,23 @@ class BaseFlavor(Protocol):
     def has_iso(self) -> bool:
         return False
 
+    # --- artifact naming -------------------------------------------------
+    # Flavors may override these to change how artifacts are laid out in
+    # the output directory (e.g. the consolidated "trixie" flavor drops the
+    # flavor component entirely for stable, flavor-agnostic paths).
+
+    def kernel_artifact_name(self, output_arch: str) -> str:
+        return f"vmlinuz-{self.cfg.flavor_id}-{output_arch}"
+
+    def initramfs_artifact_name(self, output_arch: str) -> str:
+        return f"initramfs-{self.cfg.flavor_id}-{output_arch}"
+
+    def iso_artifact_name(self, output_arch: str) -> str:
+        return f"captainos-{self.cfg.flavor_id}-{output_arch}.iso"
+
+    def dtb_artifact_dirname(self, output_arch: str) -> str:
+        return f"dtb-{self.cfg.flavor_id}-{output_arch}"
+
     def pre_mkosi_stage(self):
         pass
 
@@ -184,11 +201,11 @@ class BaseFlavor(Protocol):
     def list_arch_artifacts(self, output_arch: str) -> list[OutputArchArtifact]:
         artifacts: list[OutputArchArtifact] = [
             OutputArchArtifact(
-                type=OutputArchArtifactType.FILE, name=f"vmlinuz-{self.cfg.flavor_id}-{output_arch}"
+                type=OutputArchArtifactType.FILE, name=self.kernel_artifact_name(output_arch)
             ),
             OutputArchArtifact(
                 type=OutputArchArtifactType.FILE,
-                name=f"initramfs-{self.cfg.flavor_id}-{output_arch}",
+                name=self.initramfs_artifact_name(output_arch),
             ),
         ]
         # include .iso if the flavor supports it.
@@ -196,7 +213,7 @@ class BaseFlavor(Protocol):
             artifacts += [
                 OutputArchArtifact(
                     type=OutputArchArtifactType.FILE,
-                    name=f"captainos-{self.cfg.flavor_id}-{output_arch}.iso",
+                    name=self.iso_artifact_name(output_arch),
                 )
             ]
 
@@ -213,7 +230,7 @@ class BaseFlavor(Protocol):
             artifacts.append(
                 OutputArchArtifact(
                     type=OutputArchArtifactType.DIRECTORY,
-                    name=f"dtb-{self.cfg.flavor_id}-{output_arch}",
+                    name=self.dtb_artifact_dirname(output_arch),
                 )
             )
 

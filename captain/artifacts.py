@@ -8,9 +8,13 @@ import shutil
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from captain.config import Config
 from captain.util import ensure_dir
+
+if TYPE_CHECKING:
+    from captain.flavor import BaseFlavor
 
 log = logging.getLogger(__name__)
 
@@ -33,14 +37,14 @@ def _human_size(size: int) -> str:
     return f"{size:.1f}T"
 
 
-def collect_kernel(cfg: Config) -> None:
+def collect_kernel(cfg: Config, flavor: BaseFlavor) -> None:
     """Copy the kernel image produced by mkosi."""
     out = ensure_dir(cfg.output_dir)
     log.debug("Looking for kernel image produced by mkosi in %s", cfg.initramfs_output)
     vmlinu_files = sorted(cfg.initramfs_output.glob("*.vmlinu*"))
     if vmlinu_files:
         vmlinuz_src = vmlinu_files[0]
-        vmlinuz_dst = out / f"vmlinuz-{cfg.flavor_id}-{cfg.arch_info.output_arch}"
+        vmlinuz_dst = out / flavor.kernel_artifact_name(cfg.arch_info.output_arch)
         shutil.copy2(vmlinuz_src, vmlinuz_dst)
         log.info(
             "mkosi supplied kernel: %s (%s)", vmlinuz_dst, _human_size(vmlinuz_dst.stat().st_size)
@@ -49,27 +53,27 @@ def collect_kernel(cfg: Config) -> None:
         log.error("No kernel image produced by mkosi in %s", cfg.initramfs_output)
 
 
-def collect_initramfs(cfg: Config) -> None:
+def collect_initramfs(cfg: Config, flavor: BaseFlavor) -> None:
     """Copy the initramfs CPIO from mkosi.output/initramfs/{arch}/ to out/."""
     out = ensure_dir(cfg.output_dir)
     cpio_files = sorted(cfg.initramfs_output.glob("*.cpio*"))
     if cpio_files:
         initrd_src = cpio_files[0]
-        initrd_dst = out / f"initramfs-{cfg.flavor_id}-{cfg.arch_info.output_arch}"
+        initrd_dst = out / flavor.initramfs_artifact_name(cfg.arch_info.output_arch)
         shutil.copy2(initrd_src, initrd_dst)
         log.info("initramfs: %s (%s)", initrd_dst, _human_size(initrd_dst.stat().st_size))
     else:
         log.warning("No initramfs CPIO found in %s", cfg.initramfs_output)
 
 
-def collect_dtbs(cfg):
+def collect_dtbs(cfg: Config, flavor: BaseFlavor) -> None:
     """Collect the dtb directory produced by mkosi's finalize script."""
     indir = ensure_dir(cfg.initramfs_output)
     dtb_dir: Path = indir / "dtb"
     if dtb_dir.exists():
         log.info("Found dtb directory in %s, copying to output...", dtb_dir)
         out = ensure_dir(cfg.output_dir)
-        target_dtb_dir = out / f"dtb-{cfg.flavor_id}-{cfg.arch_info.output_arch}"
+        target_dtb_dir = out / flavor.dtb_artifact_dirname(cfg.arch_info.output_arch)
         if target_dtb_dir.exists():
             shutil.rmtree(target_dtb_dir)
         shutil.copytree(dtb_dir, target_dtb_dir)
@@ -78,14 +82,14 @@ def collect_dtbs(cfg):
         log.warning("No dtb directory found in %s", dtb_dir)
 
 
-def collect_iso(cfg: Config) -> None:
+def collect_iso(cfg: Config, flavor: BaseFlavor) -> None:
     """Copy the ISO image from mkosi.output/iso/{arch}/ to out/."""
     out = ensure_dir(cfg.output_dir)
     iso_dir = cfg.iso_output
     iso_files = sorted(iso_dir.glob("*.iso")) if iso_dir.is_dir() else []
     if iso_files:
         iso_src = iso_files[0]
-        iso_dst = out / f"captainos-{cfg.flavor_id}-{cfg.arch_info.output_arch}.iso"
+        iso_dst = out / flavor.iso_artifact_name(cfg.arch_info.output_arch)
         shutil.copy2(iso_src, iso_dst)
         log.info("iso: %s (%s)", iso_dst, _human_size(iso_dst.stat().st_size))
 
@@ -128,12 +132,12 @@ def collect_checksums(
         )
 
 
-def collect(cfg: Config) -> None:
+def collect(cfg: Config, flavor: BaseFlavor) -> None:
     """Copy initramfs, kernel, and ISO images from mkosi.output/ to out/."""
     log.info("Collecting build artifacts...")
-    collect_initramfs(cfg)
-    collect_kernel(cfg)
-    collect_iso(cfg)
+    collect_initramfs(cfg, flavor)
+    collect_kernel(cfg, flavor)
+    collect_iso(cfg, flavor)
 
 
 class OutputArchArtifactType(StrEnum):

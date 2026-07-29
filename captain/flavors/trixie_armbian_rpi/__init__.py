@@ -43,13 +43,11 @@ class TrixieArmbianRPiFlavor(ArmbianCommonFlavor):
         out: Path = ensure_dir(self.cfg.output_dir)
         log.debug("Copying firmware directory from %s to %s", self.firmware_output(), out)
         target_fw_dir = out / self.firmware_out_dirname()
-        if target_fw_dir.exists():
-            shutil.rmtree(target_fw_dir)
-        shutil.copytree(self.firmware_output(), target_fw_dir)
+        self.copy_firmware_dir(target_fw_dir)
         log.info("Copied firmware directory: %s", target_fw_dir)
 
         ## Symlink all dtbs directly in the fw dir
-        out_dtbs = out / f"dtb-{self.cfg.flavor_id}-{self.cfg.arch_info.output_arch}"
+        out_dtbs = out / self.dtb_artifact_dirname(self.cfg.arch_info.output_arch)
         broadcom_dtbs = out_dtbs / "broadcom"
         if not broadcom_dtbs.is_dir():
             log.error(
@@ -66,16 +64,12 @@ class TrixieArmbianRPiFlavor(ArmbianCommonFlavor):
         if not broadcom_overlays.is_dir():
             log.error("Expected dtb overlays directory %s does not exist", broadcom_overlays)
             raise ValueError(f"Expected dtb overlays directory {broadcom_overlays} does not exist")
-        target_overlays = ensure_dir(target_fw_dir / "overlays")
-        for overlay in broadcom_overlays.glob("*.dtbo"):
-            log.debug("Symlinking dtb overlay %s to firmware overlays directory", overlay)
-            target_overlay = target_overlays / overlay.name
-            symlink_relative(target_overlay, overlay)
+        self.link_overlays(target_fw_dir, broadcom_overlays)
 
         ## Symlink the kernel and initramfs
         # kernel as kernel8.img
         # see https://www.raspberrypi.com/documentation/computers/config_txt.html#kernel
-        kernel_src = out / f"vmlinuz-{self.cfg.flavor_id}-{self.cfg.arch_info.output_arch}"
+        kernel_src = out / self.kernel_artifact_name(self.cfg.arch_info.output_arch)
         if not kernel_src.is_file():
             log.error(
                 "Expected kernel image %s does not exist, cannot symlink to firmware dir",
@@ -88,7 +82,7 @@ class TrixieArmbianRPiFlavor(ArmbianCommonFlavor):
 
         # initramfs as initramfs8
         # see https://www.raspberrypi.com/documentation/computers/config_txt.html#initramfs
-        initramfs_src = out / f"initramfs-{self.cfg.flavor_id}-{self.cfg.arch_info.output_arch}"
+        initramfs_src = out / self.initramfs_artifact_name(self.cfg.arch_info.output_arch)
         if not initramfs_src.is_file():
             log.error(
                 "Expected initramfs image %s does not exist, cannot symlink to firmware dir",
@@ -102,6 +96,19 @@ class TrixieArmbianRPiFlavor(ArmbianCommonFlavor):
     def firmware_out_dirname(self) -> str:
         # return f"firmware-{self.cfg.flavor_id}-{self.cfg.arch_info.output_arch}"
         return "firmware-rpi"
+
+    def copy_firmware_dir(self, target_fw_dir: Path):
+        """Place the downloaded firmware at *target_fw_dir*; overridable by consolidators."""
+        if target_fw_dir.exists():
+            shutil.rmtree(target_fw_dir)
+        shutil.copytree(self.firmware_output(), target_fw_dir)
+
+    def link_overlays(self, target_fw_dir: Path, overlays_src_dir: Path):
+        """Symlink dtb overlays into the firmware dir; overridable by consolidating flavors."""
+        target_overlays = ensure_dir(target_fw_dir / "overlays")
+        for overlay in overlays_src_dir.glob("*.dtbo"):
+            log.debug("Symlinking dtb overlay %s to firmware overlays directory", overlay)
+            symlink_relative(target_overlays / overlay.name, overlay)
 
     def firmware_output(self) -> Path:
         return ensure_dir(self.cfg.initramfs_output / "firmware")

@@ -56,6 +56,6 @@ def build_cmd(
     flavor.generate(hash_only=True)  # Just populates cfg.flavor_hash so we can find the initramfs
 
     _build_iso_stage(cfg)
-    artifacts.collect_iso(cfg)
+    artifacts.collect_iso(cfg, flavor)
     _prune_stale_output_dirs(cfg)
     log.info("ISO build complete!!!")
